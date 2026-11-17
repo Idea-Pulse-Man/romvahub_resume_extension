@@ -99,6 +99,39 @@ export async function applyTick(api, note) {
   }
 }
 
+/**
+ * The Apply button on romva.space: open this one job now and fill it in,
+ * whether or not "Open & fill applications" is on. A job already open in a tab
+ * is brought to the front instead of opened twice.
+ */
+export async function applyOne(bidId, api, note) {
+  const applyOpen = await openTabs();
+  const open = Object.entries(applyOpen).find(([, t]) => t.bidId === bidId);
+  if (open) {
+    try {
+      const tab = await chrome.tabs.update(Number(open[0]), { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
+      return { ok: true, alreadyOpen: true };
+    } catch {
+      delete applyOpen[open[0]];
+      await saveOpenTabs(applyOpen);
+    }
+  }
+
+  await chrome.storage.session.remove(`applyData:${bidId}`); // the latest Profile and files
+  let data;
+  try {
+    data = await dataFor(bidId, api);
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  const tab = await chrome.tabs.create({ url: data.jobUrl, active: true });
+  applyOpen[tab.id] = { bidId, company: data.company, role: data.role, openedAt: Date.now() };
+  await saveOpenTabs(applyOpen);
+  await note(`Apply: opened ${data.company} — ${data.role}`);
+  return { ok: true };
+}
+
 /** A tracked tab finished loading a page: fill it in (again — only empty fields are touched). */
 async function onTabLoaded(tabId, api) {
   const applyOpen = await openTabs();
@@ -166,7 +199,11 @@ export function registerApply(api, note) {
     if (info.status === 'complete') void onTabLoaded(tabId, api);
   });
   chrome.tabs.onRemoved.addListener((tabId) => void onTabClosed(tabId, api, note));
-  chrome.runtime.onMessage.addListener((message, sender) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === 'apply-one') {
+      applyOne(message.bidId, api, note).then(sendResponse, (error) => sendResponse({ ok: false, error: error.message }));
+      return true; // answered later
+    }
     if (message?.type === 'apply-submitted' && sender.tab?.id) void onSubmitted(sender.tab.id, api, note);
     if (message?.type === 'apply-now') void applyTick(api, note);
     if (message?.type === 'apply-forget') void forgetHandled();

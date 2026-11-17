@@ -47,6 +47,10 @@ authorisation, sponsorship, relocation and the voluntary EEO questions — with
 the Resume and cover letter PDFs attached. A small green banner on the page
 says what was filled.
 
+- **Apply button** (romva.space Applications table, each row's Actions): opens
+  that one job in a new tab and fills it in the same way, even with
+  *Open & fill applications* off. After installing or reloading the extension,
+  refresh romva.space once so the button can reach it.
 - **It never submits.** Check each tab, answer anything left, click Submit.
 - When the page says the application was sent, the tab closes and the next job
   opens. Closing a tab yourself also counts as done with that job.
