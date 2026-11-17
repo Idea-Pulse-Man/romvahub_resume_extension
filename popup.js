@@ -1,4 +1,4 @@
-const DEFAULTS = { apiUrl: 'https://www.romva.space', enabled: true, deviceName: '', applyEnabled: false, applyTabs: 3 };
+const DEFAULTS = { apiUrl: 'https://www.romva.space', enabled: true, deviceName: '' };
 const $ = (id) => document.getElementById(id);
 
 async function settings() {
@@ -38,10 +38,6 @@ function time(at) {
 async function render() {
   const current = await settings();
   $('enabled').checked = current.enabled;
-  $('applyEnabled').checked = current.applyEnabled;
-  $('applyTabs').value = current.applyTabs;
-  const { applyOpen = {}, applyHandled = {} } = await chrome.storage.local.get(['applyOpen', 'applyHandled']);
-  $('applyCount').textContent = `${Object.keys(applyOpen).length} open · ${Object.keys(applyHandled).length} done`;
   $('deviceName').value = current.deviceName;
   $('apiUrl').value = current.apiUrl;
 
@@ -93,25 +89,6 @@ $('deviceName').addEventListener('change', (event) => saveSettings({ deviceName:
 $('apiUrl').addEventListener('change', async (event) => {
   await saveSettings({ apiUrl: event.target.value.trim() || DEFAULTS.apiUrl });
   await render();
-});
-$('applyEnabled').addEventListener('change', async (event) => {
-  await saveSettings({ applyEnabled: event.target.checked });
-  if (event.target.checked) await chrome.runtime.sendMessage({ type: 'apply-now' });
-  setTimeout(render, 1500);
-});
-$('applyTabs').addEventListener('change', async (event) => {
-  const tabs = Math.min(10, Math.max(1, Number(event.target.value) || 3));
-  await saveSettings({ applyTabs: tabs });
-  await chrome.runtime.sendMessage({ type: 'apply-now' });
-  setTimeout(render, 1500);
-});
-$('applyNow').addEventListener('click', async () => {
-  await chrome.runtime.sendMessage({ type: 'apply-now' });
-  setTimeout(render, 1500);
-});
-$('applyForget').addEventListener('click', async () => {
-  await chrome.runtime.sendMessage({ type: 'apply-forget' });
-  setTimeout(render, 500);
 });
 $('now').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'tick-now' });
