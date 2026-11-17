@@ -36,3 +36,24 @@ The ChatGPT window closes by itself after each chat.
 - Leave Chrome open. If ChatGPT signs out, it pauses and retries every minute.
 - If Chrome asks where to save each download, turn off
   *Settings → Downloads → Ask where to save each file*.
+
+## Apply (fill in the application forms — you submit)
+
+In the popup, tick **Open & fill applications** and choose how many tabs to
+keep open. Each tab is the application page of a Draft whose Resume and cover
+letter are made, already filled in from the Profile — name, email, phone,
+links, location, current company and title, the cover letter box, work
+authorisation, sponsorship, relocation and the voluntary EEO questions — with
+the Resume and cover letter PDFs attached. A small green banner on the page
+says what was filled.
+
+- **Apply button** (romva.space Applications table, each row's Actions): opens
+  that one job in a new tab and fills it in the same way, even with
+  *Open & fill applications* off. After installing or reloading the extension,
+  refresh romva.space once so the button can reach it.
+- **It never submits.** Check each tab, answer anything left, click Submit.
+- When the page says the application was sent, the tab closes and the next job
+  opens. Closing a tab yourself also counts as done with that job.
+- No screenshot is taken and the status on romva.space is not changed.
+- Opened jobs are remembered for 14 days; **Forget opened jobs** opens them again.
+- The extension needs access to all sites to fill forms on any job site.

@@ -43,6 +43,20 @@
   </section>
 
   <section>
+    <div class="row"><strong>Apply</strong><span id="applyCount" class="muted"></span></div>
+    <label><input type="checkbox" id="applyEnabled" /> Open &amp; fill applications (you submit)</label>
+    <div class="row">
+      <span>Tabs open at once</span>
+      <input type="number" id="applyTabs" min="1" max="10" style="width:56px" />
+    </div>
+    <div class="row">
+      <button id="applyNow">Open next now</button>
+      <button id="applyForget" title="Open again the jobs already opened">Forget opened jobs</button>
+    </div>
+    <div class="muted">Each tab is filled in with the Profile, Resume and cover letter. Check it and click Submit yourself; the tab closes after it is sent. Nothing is submitted for you, and the status on romva.space stays as it is.</div>
+  </section>
+
+  <section>
     <div class="row"><strong>Now</strong><button id="now">Check now</button></div>
     <div id="current" class="muted">…</div>
     <div class="muted" style="margin-top:6px">Files go to <code>Downloads\Resume\&lt;Profile&gt;\&lt;Company_Role&gt;\</code></div>
