@@ -11,6 +11,8 @@
  *
  *   window.__romvaApply.fill(data)  → { filled, files, unfilledRequired }   (safe to call again)
  *   window.__romvaApply.submitted() → true on the "application sent" page
+ *   window.__romvaApply.questions() → the form's open questions still empty: [{ id, question, required, maxLength }]
+ *   window.__romvaApply.answer(list) → types [{ id, answer }] into those fields (empty ones only)
  *
  * Only empty fields are filled, so calling fill() again as the page renders
  * more of the form never overwrites what the person typed.
@@ -112,7 +114,8 @@
   /** The answer to a choice question (select / radio) described as `d`, as text to match an option. */
   function answerFor(d, a) {
     const authorized = (a.authorizedCountries ?? []).length > 0;
-    if (/sponsor/.test(d)) return authorized ? 'No' : undefined;
+    // The applicant never needs a visa sponsored, for any country.
+    if (/sponsor/.test(d)) return 'No';
     if (/authori[sz]ed to work|legally (authori[sz]ed|eligible|able)|eligible to work|right to work/.test(d)) {
       return authorized ? 'Yes' : undefined;
     }
@@ -180,6 +183,122 @@
   }
 
   const attached = new WeakSet();
+  const clickedGroups = new WeakSet();
+
+  /** A button that looks chosen: pressed, checked, or styled as active/selected. */
+  function selected(button) {
+    if (/^(true|mixed)$/.test(button.getAttribute('aria-pressed') || '')) return true;
+    if (button.getAttribute('aria-checked') === 'true' || button.getAttribute('aria-selected') === 'true') return true;
+    if (/^(on|checked|active|selected)$/.test(button.getAttribute('data-state') || '')) return true;
+    return /(^|[\s_-])(active|selected|checked|is-?selected|pressed)([\s_-]|$)/i.test(String(button.className || ''));
+  }
+
+  /**
+   * Groups of 2–6 short sibling buttons answering one question ("Yes" / "No"),
+   * with the question read from the surrounding field. Submit and navigation
+   * buttons are never part of one.
+   */
+  function buttonGroups() {
+    const parents = new Set();
+    for (const button of document.querySelectorAll('button, [role=button], [role=radio]')) {
+      if (visible(button) && button.parentElement) parents.add(button.parentElement);
+    }
+    const groups = [];
+    for (const parent of parents) {
+      const buttons = Array.from(parent.children).filter(
+        (child) => child.matches('button, [role=button], [role=radio]') && visible(child),
+      );
+      if (buttons.length < 2 || buttons.length > 6) continue;
+      if (buttons.some((b) => b.type === 'submit' || !norm(b.innerText) || norm(b.innerText).length > 40)) continue;
+      if (buttons.some((b) => /submit|apply|next|back|continue|save|cancel|upload|attach|remove|replace/.test(norm(b.innerText)))) continue;
+      let container = parent;
+      let question = '';
+      for (let depth = 0; depth < 4 && container.parentElement; depth += 1) {
+        container = container.parentElement;
+        // The field's own label or legend, when it has one ("Gender").
+        const heading = Array.from(container.querySelectorAll('label, legend, [class*="label"], [class*="Label"]')).find(
+          (node) => !node.contains(parent) && norm(node.innerText),
+        );
+        if (heading) {
+          question = norm(heading.innerText).slice(0, 300);
+          break;
+        }
+        let text = container.innerText || '';
+        for (const b of buttons) text = text.replace(b.innerText, ' ');
+        question = norm(text).slice(0, 300);
+        if (question.length > 3) break;
+      }
+      if (question) groups.push({ parent, buttons, question });
+    }
+    return groups;
+  }
+
+  /** A field's question, as the person reads it: its label, else what is around it. */
+  function labelOf(el) {
+    const parts = [];
+    if (el.id) {
+      const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (label) parts.push(label.innerText);
+    }
+    for (const id of (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean)) {
+      const node = document.getElementById(id);
+      if (node) parts.push(node.innerText);
+    }
+    if (!parts.length && el.getAttribute('aria-label')) parts.push(el.getAttribute('aria-label'));
+    if (!parts.length && el.closest('label')) parts.push(el.closest('label').innerText);
+    if (!parts.length) {
+      let node = el;
+      for (let depth = 0; depth < 4 && node.parentElement && !parts.length; depth += 1) {
+        node = node.parentElement;
+        const text = (node.innerText || '').trim();
+        if (text.length > 5) parts.push(text);
+      }
+    }
+    if (!parts.length && el.getAttribute('placeholder')) parts.push(el.getAttribute('placeholder'));
+    return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, 600);
+  }
+
+  let nextQuestionId = 1;
+
+  /** The open questions still empty: every text area, and required one-line fields nothing above filled. */
+  function questions() {
+    const found = [];
+    for (const el of document.querySelectorAll('textarea, input:not([type]), input[type=text]')) {
+      if (!visible(el) || el.readOnly || String(el.value || '').trim()) continue;
+      const label = labelOf(el);
+      const question = label.replace(/\s*\*\s*$/, '').trim();
+      if (!question) continue;
+      const required = el.required || el.getAttribute('aria-required') === 'true' || /\*\s*$/.test(label);
+      if (el.tagName !== 'TEXTAREA' && !required) continue;
+      if (/cover[\s_-]*letter/i.test(question)) continue;
+      if (!el.dataset.romvaQ) el.dataset.romvaQ = String(nextQuestionId++);
+      const maxLength = el.maxLength > 0 ? el.maxLength : null;
+      found.push({ id: el.dataset.romvaQ, question, required, maxLength, multiline: el.tagName === 'TEXTAREA' });
+    }
+    return found;
+  }
+
+  /** Types ChatGPT's answers into their fields; a field the person has typed in is left alone. */
+  function answer(list) {
+    let typed = 0;
+    for (const { id, answer: text } of list || []) {
+      const value = String(text ?? '').trim();
+      if (!value) continue;
+      const el = document.querySelector(`[data-romva-q="${CSS.escape(String(id))}"]`);
+      if (!el || String(el.value || '').trim()) continue;
+      setValue(el, el.maxLength > 0 ? value.slice(0, el.maxLength) : value);
+      typed += 1;
+    }
+    if (typed) {
+      totals = { ...totals, filled: totals.filled + typed };
+      const host = document.getElementById('romva-apply-banner');
+      const strong = host?.shadowRoot?.querySelector('strong');
+      if (strong?.nextSibling) {
+        strong.nextSibling.textContent = ` filled ${totals.filled} field(s)${totals.files ? ` and attached ${totals.files} file(s)` : ''} for `;
+      }
+    }
+    return typed;
+  }
 
   function fill(data) {
     const a = data.applicant || {};
@@ -230,6 +349,21 @@
       if (option) {
         option.el.click();
         mark(option.el.closest('label') || option.el);
+        filled += 1;
+      }
+    }
+
+    // Choice buttons: "Yes / No" (and the like) drawn as buttons, not radios.
+    for (const group of buttonGroups()) {
+      if (clickedGroups.has(group.parent) || group.buttons.some(selected)) continue;
+      const option = pick(
+        group.buttons.map((button) => ({ el: button, text: norm(button.innerText) })),
+        answerFor(group.question, a),
+      );
+      if (option) {
+        option.el.click();
+        clickedGroups.add(group.parent);
+        mark(option.el);
         filled += 1;
       }
     }
@@ -297,5 +431,5 @@
     return (said || byUrl) && !formLeft;
   }
 
-  window.__romvaApply = { fill, submitted };
+  window.__romvaApply = { fill, submitted, questions, answer };
 })();
