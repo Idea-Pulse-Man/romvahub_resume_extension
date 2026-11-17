@@ -1,10 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Romva Resume Maker",
-  "version": "1.0.0",
-  "description": "Makes Resumes and cover letters for your romva.space applications with your own signed-in ChatGPT.",
-  "permissions": ["alarms", "storage", "downloads", "scripting", "tabs"],
-  "host_permissions": ["https://romva.space/*", "https://www.romva.space/*", "https://chatgpt.com/*"],
+  "version": "1.1.0",
+  "description": "Makes Resumes and cover letters for your romva.space applications with your own signed-in ChatGPT, and opens and fills in the application forms for you to check and submit.",
+  "permissions": [
+    "alarms",
+    "storage",
+    "downloads",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

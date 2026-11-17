@@ -1,3 +1,5 @@
+import { applyTick, registerApply } from './apply.js';
+
 /**
  * Romva Resume Maker — background worker.
  *
@@ -19,7 +21,7 @@
  * reports back with a message, which wakes the worker up again.
  */
 
-const DEFAULTS = { apiUrl: 'https://www.romva.space', enabled: true, deviceName: '' };
+const DEFAULTS = { apiUrl: 'https://www.romva.space', enabled: true, deviceName: '', applyEnabled: false, applyTabs: 3 };
 const CHAT_URL = 'https://chatgpt.com/?temporary-chat=true';
 /** One ChatGPT answer may take this long before the step is given up. */
 const STEP_TIMEOUT_MS = 12 * 60_000;
@@ -312,8 +314,14 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'tick') void tick();
+  if (alarm.name === 'tick') {
+    void tick();
+    void applyTick(api, note);
+  }
 });
+
+// Apply: open and fill the application forms (apply.js). You submit.
+registerApply(api, note);
 
 function schedule() {
   chrome.alarms.create('tick', { periodInMinutes: 0.5 });
