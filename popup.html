@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Romva Resume Maker</title>
+  <style>
+    :root { --bg: #ffffff; --fg: #111827; --muted: #6b7280; --line: #e5e7eb; --accent: #10b981; --warn: #d97706; --err: #dc2626; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f172a; --fg: #e5e7eb; --muted: #94a3b8; --line: #1e293b; --accent: #34d399; --warn: #fbbf24; --err: #f87171; }
+    }
+    body { margin: 0; width: 340px; font: 13px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background: var(--bg); color: var(--fg); }
+    header { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    h1 { font-size: 14px; margin: 0; }
+    section { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
+    .muted { color: var(--muted); }
+    .ok { color: var(--accent); }
+    .warn { color: var(--warn); }
+    .err { color: var(--err); }
+    button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #062e22; font-weight: 600; }
+    input[type=text] { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+    ol { margin: 0; padding: 0 0 0 16px; max-height: 160px; overflow: auto; }
+    li { margin: 2px 0; }
+    label { display: flex; align-items: center; gap: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Romva Resume Maker</h1>
+    <span id="badge" class="muted"></span>
+  </header>
+
+  <section>
+    <div class="row"><span>romva.space</span><span id="account" class="muted">…</span></div>
+    <div class="row">
+      <span>Auto resume (all computers)</span>
+      <span><span id="global" class="muted">…</span> <button id="toggleGlobal" hidden></button></span>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="enabled" /> Make Resumes in this browser</label>
+    </div>
+  </section>
+
+  <section>
+    <div class="row"><strong>Now</strong><button id="now">Check now</button></div>
+    <div id="current" class="muted">…</div>
+    <div class="muted" style="margin-top:6px">Files go to <code>Downloads\Resume\&lt;Profile&gt;\&lt;Company_Role&gt;\</code></div>
+  </section>
+
+  <section>
+    <strong>Recent</strong>
+    <ol id="events" class="muted"></ol>
+  </section>
+
+  <section>
+    <div class="row"><span>Name of this computer</span></div>
+    <input type="text" id="deviceName" placeholder="e.g. Jonathan's laptop" />
+    <div class="row"><span>romva.space address</span></div>
+    <input type="text" id="apiUrl" />
+  </section>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
