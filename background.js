@@ -1,7 +1,8 @@
 /**
  * Romva Resume Maker — background worker.
  *
- * While you are signed in to romva.space in this Chrome, it asks romva.space
+ * Signed in to romva.space in its own popup (its own session: the website's
+ * sign-in is never touched), it asks romva.space
  * for the next Draft application without a Resume, writes it with ChatGPT (your
  * own signed-in chatgpt.com, in a small window of its own), and saves the five
  * files to Downloads\Resume\<Profile>\<Company_Role>\:
@@ -21,7 +22,9 @@
  * Filling in the application forms (Apply, Alt+V) is the altv extension's job.
  */
 
-const DEFAULTS = { apiUrl: 'https://www.romva.space', enabled: true, deviceName: '' };
+import { ApiError, DEFAULT_API_URL, api } from './session.js';
+
+const DEFAULTS = { apiUrl: DEFAULT_API_URL, enabled: true, deviceName: '' };
 const CHAT_URL = 'https://chatgpt.com/?temporary-chat=true';
 /** One ChatGPT answer may take this long before the step is given up. */
 const STEP_TIMEOUT_MS = 12 * 60_000;
@@ -63,51 +66,8 @@ async function setStatus(status) {
 }
 
 // ---------------------------------------------------------------------------
-// romva.space API, with this browser's romva.space sign-in (its cookies)
-
-class ApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
-
-async function rawCall(path, { method = 'GET', body } = {}) {
-  const { apiUrl } = await settings();
-  const response = await fetch(`${apiUrl.replace(/\/+$/, '')}${path}`, {
-    method,
-    credentials: 'include',
-    headers: body !== undefined ? { 'content-type': 'application/json' } : {},
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const text = await response.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = null;
-  }
-  if (!response.ok) throw new ApiError(response.status, data?.error?.message || `${response.status} ${response.statusText}`);
-  return data;
-}
-
-/** A call as the signed-in person; an expired session is refreshed once, as the site itself does. */
-async function api(path, options) {
-  try {
-    return await rawCall(path, options);
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    try {
-      await rawCall('/api/auth/refresh', { method: 'POST', body: {} });
-    } catch (refreshError) {
-      // 409: an open romva.space tab renewed the session a moment ago; its new
-      // cookie is already in this browser, so the call just goes again.
-      if (!(refreshError instanceof ApiError) || refreshError.status !== 409) throw refreshError;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-    return rawCall(path, options);
-  }
-}
+// romva.space API: the extension's own sign-in (session.js), never the
+// website's cookies.
 
 async function workerName() {
   const { deviceName } = await settings();
@@ -232,7 +192,7 @@ async function tick() {
     claim = await api('/api/auto-make/claim', { method: 'POST', body: { worker: await workerName() } });
   } catch (error) {
     const signedOut = error instanceof ApiError && error.status === 401;
-    await setStatus({ making: null, info: signedOut ? 'Sign in to romva.space in this browser' : `romva.space: ${error.message}` });
+    await setStatus({ making: null, info: signedOut ? 'Sign in to romva.space in this extension (its icon)' : `romva.space: ${error.message}` });
     return;
   }
   if (!claim.enabled) {

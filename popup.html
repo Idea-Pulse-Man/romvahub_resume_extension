@@ -19,7 +19,7 @@
     .err { color: var(--err); }
     button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; }
     button.primary { background: var(--accent); border-color: var(--accent); color: #062e22; font-weight: 600; }
-    input[type=text] { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+    input[type=text], input[type=email], input[type=password] { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); }
     ol { margin: 0; padding: 0 0 0 16px; max-height: 160px; overflow: auto; }
     li { margin: 2px 0; }
     label { display: flex; align-items: center; gap: 6px; }
@@ -31,8 +31,19 @@
     <span id="badge" class="muted"></span>
   </header>
 
+  <section id="signIn" hidden>
+    <div class="row"><strong>Sign in to romva.space</strong></div>
+    <div class="muted" style="margin-bottom:6px">This extension keeps its own sign-in, so it never signs the website out.</div>
+    <form id="signInForm">
+      <input type="email" id="email" placeholder="Email" autocomplete="username" required />
+      <input type="password" id="password" placeholder="Password" autocomplete="current-password" required style="margin-top:4px" />
+      <input type="text" id="code" placeholder="6-digit authenticator code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" hidden style="margin-top:4px" />
+      <div class="row" style="margin-top:6px"><span id="signInError" class="err"></span><button type="submit" id="signInButton" class="primary">Sign in</button></div>
+    </form>
+  </section>
+
   <section>
-    <div class="row"><span>romva.space</span><span id="account" class="muted">…</span></div>
+    <div class="row"><span>romva.space</span><span><span id="account" class="muted">…</span> <button id="signOut" hidden>Sign out</button></span></div>
     <div class="row">
       <span>Auto resume (all computers)</span>
       <span><span id="global" class="muted">…</span> <button id="toggleGlobal" hidden></button></span>

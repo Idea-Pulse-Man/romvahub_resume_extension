@@ -1,4 +1,6 @@
-const DEFAULTS = { apiUrl: 'https://www.romva.space', enabled: true, deviceName: '' };
+import { DEFAULT_API_URL, api, getSession, signIn, signOut, verifyCode } from './session.js';
+
+const DEFAULTS = { apiUrl: DEFAULT_API_URL, enabled: true, deviceName: '' };
 const $ = (id) => document.getElementById(id);
 
 async function settings() {
@@ -10,28 +12,8 @@ async function saveSettings(patch) {
   await chrome.storage.local.set({ settings: { ...(await settings()), ...patch } });
 }
 
-async function call(path, options = {}) {
-  const { apiUrl } = await settings();
-  const response = await fetch(`${apiUrl.replace(/\/+$/, '')}${path}`, {
-    credentials: 'include',
-    method: options.method ?? 'GET',
-    headers: options.body ? { 'content-type': 'application/json' } : {},
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  if (response.status === 401 && !options.retried) {
-    const renewed = await fetch(`${apiUrl.replace(/\/+$/, '')}/api/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: '{}',
-    }).catch(() => null);
-    // 409: a romva.space tab renewed it a moment ago; its cookie is already here.
-    if (renewed?.status === 409) await new Promise((resolve) => setTimeout(resolve, 1000));
-    return call(path, { ...options, retried: true });
-  }
-  if (!response.ok) throw Object.assign(new Error(`${response.status}`), { status: response.status });
-  return response.json();
-}
+/** A call with the extension's own sign-in (session.js): never the website's cookies. */
+const call = (path, options = {}) => api(path, options);
 
 function time(at) {
   return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -60,9 +42,19 @@ async function render() {
     }),
   );
 
+  const session = await getSession();
+  $('signIn').hidden = !!session;
+  $('signOut').hidden = !session;
+  if (!session) {
+    $('account').textContent = 'Not signed in';
+    $('account').className = 'err';
+    $('global').textContent = '—';
+    $('toggleGlobal').hidden = true;
+    return;
+  }
   try {
     const me = await call('/api/auth/me');
-    $('account').textContent = me?.user?.email ?? 'signed in';
+    $('account').textContent = me?.user?.email ?? session.email ?? 'signed in';
     $('account').className = 'ok';
     const auto = await call('/api/auto-make');
     $('global').textContent = auto.enabled ? 'On' : 'Stopped';
@@ -75,12 +67,58 @@ async function render() {
       await render();
     };
   } catch (error) {
-    $('account').textContent = error.status === 401 ? 'Not signed in — open romva.space and sign in' : 'Cannot reach romva.space';
+    $('account').textContent =
+      error.status === 401 ? 'Signed out: sign in again' : error.status >= 500 ? `romva.space error (${error.status})` : 'Cannot reach romva.space';
+    $('account').title = error.message;
+    if (error.status === 401) {
+      $('signIn').hidden = false;
+      $('signOut').hidden = true;
+    }
     $('account').className = 'err';
     $('global').textContent = '—';
     $('toggleGlobal').hidden = true;
   }
 }
+
+// Sign in: email and password, then the authenticator code when the account asks for one.
+let challenge = null;
+$('signInForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  $('signInError').textContent = '';
+  $('signInButton').disabled = true;
+  const email = $('email').value.trim();
+  try {
+    if (challenge) {
+      await verifyCode(challenge.challengeId, $('code').value.trim(), email);
+    } else {
+      const result = await signIn(email, $('password').value);
+      if (result.mfa) {
+        challenge = result.mfa;
+        $('code').hidden = false;
+        $('code').required = true;
+        $('code').focus();
+        $('signInButton').textContent = 'Verify';
+        return;
+      }
+    }
+    challenge = null;
+    $('password').value = '';
+    $('code').value = '';
+    $('code').hidden = true;
+    $('code').required = false;
+    $('signInButton').textContent = 'Sign in';
+    await chrome.runtime.sendMessage({ type: 'tick-now' }).catch(() => undefined);
+    await render();
+  } catch (error) {
+    $('signInError').textContent = error.message;
+  } finally {
+    $('signInButton').disabled = false;
+  }
+});
+$('signOut').addEventListener('click', async () => {
+  await signOut();
+  await render();
+});
 
 $('enabled').addEventListener('change', async (event) => {
   await saveSettings({ enabled: event.target.checked });
