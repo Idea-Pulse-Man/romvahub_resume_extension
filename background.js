@@ -97,7 +97,14 @@ async function api(path, options) {
     return await rawCall(path, options);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    await rawCall('/api/auth/refresh', { method: 'POST', body: {} });
+    try {
+      await rawCall('/api/auth/refresh', { method: 'POST', body: {} });
+    } catch (refreshError) {
+      // 409: an open romva.space tab renewed the session a moment ago; its new
+      // cookie is already in this browser, so the call just goes again.
+      if (!(refreshError instanceof ApiError) || refreshError.status !== 409) throw refreshError;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
     return rawCall(path, options);
   }
 }

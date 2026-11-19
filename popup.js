@@ -19,12 +19,14 @@ async function call(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   if (response.status === 401 && !options.retried) {
-    await fetch(`${apiUrl.replace(/\/+$/, '')}/api/auth/refresh`, {
+    const renewed = await fetch(`${apiUrl.replace(/\/+$/, '')}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },
       body: '{}',
-    });
+    }).catch(() => null);
+    // 409: a romva.space tab renewed it a moment ago; its cookie is already here.
+    if (renewed?.status === 409) await new Promise((resolve) => setTimeout(resolve, 1000));
     return call(path, { ...options, retried: true });
   }
   if (!response.ok) throw Object.assign(new Error(`${response.status}`), { status: response.status });
